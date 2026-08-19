@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { QuizMachine } from '../core/quizMachine';
+import { MAX_ATTEMPTS_PER_QUESTION, QuizMachine } from '../core/quizMachine';
 import { QuestionTimer } from '../core/timer';
 import type { QuizQuestion } from '../types';
 
@@ -50,7 +50,7 @@ describe('QuizMachine', () => {
     expect(() => machine.answer(question.question.correctChoiceId)).toThrow('There is no active question');
   });
 
-  it('returns a wrong answer after ten other attempts', () => {
+  it('allows one retry after ten other attempts, then settles a second miss', () => {
     const machine = new QuizMachine(makeQuestions(12), () => 0.37);
     const first = machine.start();
     const firstId = first.question.id;
@@ -68,6 +68,13 @@ describe('QuizMachine', () => {
 
     const retry = machine.next();
     expect(retry?.question.id).toBe(firstId);
+
+    const finalMiss = machine.answer('wrong');
+    expect(finalMiss.finalForQuestion).toBe(true);
+    expect(finalMiss.attemptNumber).toBe(MAX_ATTEMPTS_PER_QUESTION);
+    expect(finalMiss.attemptsRemaining).toBe(0);
+    expect(finalMiss.stats.mistakes).toBe(1);
+    expect(machine.pendingRetryCount).toBe(0);
   });
 
   it('uses the remaining available question before an early retry when fewer than ten remain', () => {
@@ -83,9 +90,15 @@ describe('QuizMachine', () => {
 
     const retry = machine.next();
     expect(retry?.question.id).toBe(first.question.id);
+
+    const finalMiss = machine.answer('wrong');
+    expect(finalMiss.completed).toBe(true);
+    expect(finalMiss.stats.score).toBe(50);
+    expect(finalMiss.stats.mistakes).toBe(1);
+    expect(finalMiss.stats.remaining).toBe(0);
   });
 
-  it('keeps only one pending retry when the same question is missed again', () => {
+  it('does not allow a third attempt after the second miss', () => {
     const machine = new QuizMachine(makeQuestions(2), () => 0.42);
     const first = machine.start();
     machine.answer('wrong');
@@ -95,9 +108,11 @@ describe('QuizMachine', () => {
     machine.answer(other?.question.correctChoiceId ?? 'correct');
     const retry = machine.next();
     expect(retry?.question.id).toBe(first.question.id);
-    machine.answer('wrong');
+    const second = machine.answer('wrong');
 
-    expect(machine.pendingRetryCount).toBe(1);
+    expect(second.finalForQuestion).toBe(true);
+    expect(machine.pendingRetryCount).toBe(0);
+    expect(() => machine.answer('wrong')).toThrow('There is no active question');
   });
 
   it('counts timeouts as retries and never reveals a correct choice in the result', () => {
@@ -109,7 +124,46 @@ describe('QuizMachine', () => {
     expect(result.selectedChoiceId).toBeUndefined();
     expect(result.stats.retries).toBe(1);
     expect(result.completed).toBe(false);
+    expect(result.finalForQuestion).toBe(false);
     expect(question.question.correctChoiceId).toBe('correct');
+  });
+
+  it('puts every missed question before the questions mastered without a miss', () => {
+    const machine = new QuizMachine(makeQuestions(3), () => 0.23);
+    const first = machine.start();
+    machine.answer('wrong');
+
+    const second = machine.next();
+    machine.answer(second?.question.correctChoiceId ?? 'correct');
+    const third = machine.next();
+    machine.answer(third?.question.correctChoiceId ?? 'correct');
+    const retry = machine.next();
+    expect(retry?.question.id).toBe(first.question.id);
+    machine.answer(retry?.question.correctChoiceId ?? 'correct');
+
+    const review = machine.review;
+    expect(review).toHaveLength(3);
+    expect(review[0]?.question.id).toBe(first.question.id);
+    expect(review[0]?.status).toBe('corrected');
+    expect(review.slice(1).every((item) => item.status === 'mastered')).toBe(true);
+    expect(machine.stats.reviewed).toBe(1);
+    expect(machine.stats.mistakes).toBe(0);
+    expect(machine.stats.score).toBe(100);
+  });
+
+  it('completes with a zero score when the only question is missed twice', () => {
+    const machine = new QuizMachine(makeQuestions(1), () => 0.2);
+    machine.start();
+    machine.answer('wrong');
+    const retry = machine.next();
+    const finalMiss = machine.answer(retry?.question.choices[1]?.id ?? 'wrong');
+
+    expect(finalMiss.completed).toBe(true);
+    expect(finalMiss.stats.score).toBe(0);
+    expect(finalMiss.stats.mistakes).toBe(1);
+    expect(finalMiss.stats.reviewed).toBe(1);
+    expect(machine.review[0]?.status).toBe('not-mastered');
+    expect(machine.review[0]?.selectedChoiceIds).toHaveLength(2);
   });
 
   it('tracks first-attempt accuracy, streaks, and best streak', () => {
