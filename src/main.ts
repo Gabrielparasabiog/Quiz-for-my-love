@@ -1,16 +1,17 @@
 import './styles.css';
 import { validateQuestions, validateVerses } from './core/content';
-import { choiceLetter, formatAccuracy, QuizMachine } from './core/quizMachine';
+import { choiceLetter, formatAccuracy, MAX_ATTEMPTS_PER_QUESTION, QuizMachine } from './core/quizMachine';
 import { QuestionTimer } from './core/timer';
 import { VerseRotation } from './core/verseRotation';
 import { createMessageBags, type MessageKind } from './data/messages';
 import { questionBank } from './data/questions';
 import { verses } from './data/verses';
-import type { AnswerResult, Choice, PresentedQuestion, QuizStats, VerseCard } from './types';
+import type { AnswerResult, Choice, PresentedQuestion, QuestionReview, QuizStats, VerseCard } from './types';
 
 const QUESTION_SECONDS = 60;
 const FEEDBACK_DELAY_MS = 1250;
-const VERSE_ROTATION_MS = 180000;
+const LOVE_NOTE_ROTATION_MS = 20000;
+const VERSE_ROTATION_MS = 60000;
 
 type AppPhase = 'welcome' | 'playing' | 'feedback' | 'complete' | 'unavailable';
 
@@ -21,6 +22,7 @@ class QuizApp {
   private timerHandle: number | undefined;
   private feedbackHandle: number | undefined;
   private verseHandle: number | undefined;
+  private loveNoteHandle: number | undefined;
   private answerLocked = false;
   private milestoneShown = new Set<number>();
   private messageBags = createMessageBags();
@@ -60,7 +62,7 @@ class QuizApp {
             <div class="welcome-facts" aria-label="Quiz rules">
               <span><strong>60s</strong> per question</span>
               <span><strong>${questionBank.length}</strong> questions from your test bank</span>
-              <span><strong>∞</strong> brave retries</span>
+              <span><strong>2</strong> attempts per question</span>
             </div>
           </div>
           <div class="welcome-art" aria-hidden="true">
@@ -117,6 +119,7 @@ class QuizApp {
     this.phase = 'playing';
     this.engine.start();
     this.renderQuizShell();
+    this.startLoveNoteRotation();
     this.startVerseRotation();
     this.renderCurrentQuestion();
     this.startTimer();
@@ -128,7 +131,7 @@ class QuizApp {
         <div class="quiz-atmosphere" aria-hidden="true"><span></span><span></span><span></span></div>
         <header class="quiz-header">
           <a class="mini-brand" href="." aria-label="Back to quiz welcome screen"><span class="mini-brand-mark">✦</span><span>QUIZ FOR MY LOVE</span></a>
-          <div class="header-note"><span class="live-dot"></span> A quiet little cheer from Gab</div>
+          <div class="header-note" id="header-love-note" aria-live="polite"><span class="live-dot"></span><span id="love-note-text">A quiet little cheer from Gab</span></div>
           <button class="header-reset" type="button" id="header-reset">Restart</button>
         </header>
         <div class="quiz-layout">
@@ -174,7 +177,7 @@ class QuizApp {
               <p class="verse-reference" id="verse-reference">WEB · —</p>
               <div class="verse-note" id="verse-note">You are held, supported, and more capable than the nerves suggest.</div>
             </article>
-            <div class="side-love-note"><span class="side-love-star">✦</span><p>Every brave answer is part of your story.</p><strong>Keep going, My Love.</strong></div>
+            <div class="side-love-note" aria-live="polite"><span class="side-love-star">✦</span><p id="side-love-message">Every brave answer is part of your story.</p><strong>Keep going, My Love.</strong></div>
           </aside>
         </div>
       </main>
@@ -284,8 +287,18 @@ class QuizApp {
       return;
     }
 
-    const kind: MessageKind = result.outcome === 'correct' ? 'correct' : result.outcome === 'timeout' ? 'timeout' : 'retry';
-    const title = result.outcome === 'correct' ? 'Correct!' : result.outcome === 'timeout' ? "Time's up" : 'Not quite';
+    const kind: MessageKind = result.outcome === 'correct'
+      ? 'correct'
+      : result.finalForQuestion
+        ? 'lastChance'
+        : result.outcome === 'timeout'
+          ? 'timeout'
+          : 'retry';
+    const title = result.outcome === 'correct'
+      ? 'Correct!'
+      : result.finalForQuestion
+        ? result.outcome === 'timeout' ? "Time's up — last try" : 'Not quite — last try'
+        : result.outcome === 'timeout' ? "Time's up" : 'Not quite';
     feedbackPanel.className = `feedback-panel feedback-${result.outcome}`;
     feedbackPanel.hidden = false;
     this.setText('#feedback-title', title);
@@ -323,7 +336,10 @@ class QuizApp {
   private renderCompletion(stats: QuizStats): void {
     this.clearTimers();
     this.stopVerseRotation();
+    this.stopLoveNoteRotation();
     this.phase = 'complete';
+    const review = this.engine?.review ?? [];
+    const reviewMarkup = review.map((item, index) => this.renderReviewItem(item, index)).join('');
     this.root.innerHTML = `
       <main class="app-shell completion-shell">
         <div class="completion-confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -333,11 +349,20 @@ class QuizApp {
           <h1 id="completion-title">You did it,<br /><em>My Love.</em></h1>
           <p class="completion-message" id="completion-message"></p>
           <div class="completion-stats">
-            <div><strong>${stats.mastered}</strong><span>mastered</span></div>
-            <div><strong>${formatAccuracy(stats.firstAttemptAccuracy)}</strong><span>first-try accuracy</span></div>
-            <div><strong>${stats.retries}</strong><span>comeback tries</span></div>
+            <div><strong>${formatAccuracy(stats.score)}</strong><span>total score</span></div>
+            <div><strong>${stats.mistakes}</strong><span>not mastered</span></div>
+            <div><strong>${stats.wrongAnswers}</strong><span>wrong answers</span></div>
+            <div><strong>${stats.reviewed}</strong><span>questions to review</span></div>
             <div><strong>${stats.bestStreak}</strong><span>best streak</span></div>
           </div>
+          <section class="review-section" aria-labelledby="review-title">
+            <div class="review-heading">
+              <div><p class="eyebrow">YOUR REVIEW MAP</p><h2 id="review-title">Missed questions first</h2></div>
+              <span>${review.length} questions</span>
+            </div>
+            <p class="review-intro">The questions you missed appear first so you can revisit them while the lesson is still warm. Corrected items remain here as useful review notes.</p>
+            <ol class="review-list">${reviewMarkup}</ol>
+          </section>
           <p class="completion-footnote">Every answer was a little bit of courage. I am so proud of you. —Gab</p>
           <button class="primary-button" type="button" id="restart-button"><span>Rumble again</span><span class="button-arrow" aria-hidden="true">↗</span></button>
         </section>
@@ -345,6 +370,31 @@ class QuizApp {
     `;
     this.setText('#completion-message', this.messageBags.completion.next());
     this.root.querySelector<HTMLButtonElement>('#restart-button')?.addEventListener('click', () => this.startSession());
+  }
+
+  private renderReviewItem(item: QuestionReview, index: number): string {
+    const statusLabel = item.status === 'not-mastered'
+      ? 'Needs review'
+      : item.status === 'corrected'
+        ? 'Corrected on retry'
+        : 'Mastered first try';
+    const selectedLabels = item.selectedChoiceIds
+      .map((choiceId) => item.question.choices.find((choice) => choice.id === choiceId)?.label)
+      .filter((label): label is string => Boolean(label));
+    const selectedText = selectedLabels.length > 0 ? selectedLabels.join(' → ') : 'No answer selected';
+    const correctChoice = item.question.choices.find((choice) => choice.id === item.question.correctChoiceId);
+    const answerLine = item.status === 'mastered'
+      ? `<p class="review-result review-result-good">Answered correctly on the first attempt.</p>`
+      : `<p class="review-result"><strong>Your attempt:</strong> ${escapeHtml(selectedText)}</p><p class="review-correct"><strong>Correct answer:</strong> ${escapeHtml(correctChoice?.label ?? 'See the choices again')}</p>`;
+
+    return `
+      <li class="review-item review-item-${item.status}">
+        <div class="review-item-topline"><span>QUESTION ${String(index + 1).padStart(3, '0')}</span><span class="review-status">${statusLabel}</span><span>${item.attempts}/${MAX_ATTEMPTS_PER_QUESTION} attempts</span></div>
+        <h3>${escapeHtml(item.question.prompt)}</h3>
+        <p class="review-category">${escapeHtml(item.question.category)} · ${item.incorrectAttempts} miss${item.incorrectAttempts === 1 ? '' : 'es'}</p>
+        ${answerLine}
+      </li>
+    `;
   }
 
   private updateStats(stats: QuizStats): void {
@@ -383,6 +433,21 @@ class QuizApp {
     this.setText('#verse-text', this.currentVerse.text);
     this.setText('#verse-reference', `${this.currentVerse.reference} · WEB`);
     this.setText('#verse-note', this.currentVerse.note);
+  }
+
+  private rotateLoveNote(): void {
+    if (this.phase === 'unavailable' || !this.root.querySelector('#header-love-note')) {
+      return;
+    }
+    const message = this.messageBags.loveNote.next();
+    this.setText('#love-note-text', message);
+    this.setText('#side-love-message', message);
+  }
+
+  private startLoveNoteRotation(): void {
+    this.stopLoveNoteRotation();
+    this.rotateLoveNote();
+    this.loveNoteHandle = window.setInterval(() => this.rotateLoveNote(), LOVE_NOTE_ROTATION_MS);
   }
 
   private startVerseRotation(): void {
@@ -440,9 +505,17 @@ class QuizApp {
     }
   }
 
+  private stopLoveNoteRotation(): void {
+    if (this.loveNoteHandle !== undefined) {
+      window.clearInterval(this.loveNoteHandle);
+      this.loveNoteHandle = undefined;
+    }
+  }
+
   private resetToWelcome(): void {
     this.clearTimers();
     this.stopVerseRotation();
+    this.stopLoveNoteRotation();
     this.phase = 'welcome';
     this.answerLocked = false;
     this.engine = null;
@@ -457,3 +530,13 @@ if (!appRoot) {
 }
 
 new QuizApp(appRoot).boot();
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character] ?? character);
+}
