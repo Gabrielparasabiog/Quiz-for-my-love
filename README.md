@@ -6,11 +6,12 @@ A small, static board-exam practice rumble made for My Love. It is intentionally
 
 - 231 multiple-choice questions imported from the supplied test-bank PDF, with the PDF wording and choices preserved.
 - A 60-second timer for every attempt.
-- Wrong and timed-out questions return after ten other attempts when there are enough available questions; with fewer remaining questions, they return after the current available queue is exhausted.
-- Mastery-based completion: the rumble ends only after every question has been answered correctly.
+- Every question allows at most two attempts. A first wrong or timed-out attempt returns after ten other attempts when there are enough available questions; with fewer remaining questions, it returns after the current available queue is exhausted. A second miss settles that question as not mastered so the session cannot loop forever.
+- The rumble ends when every question is either mastered or settled after its two attempts.
 - Shuffled question and answer order, without changing answer identity.
 - Mastered count, first-attempt accuracy, retries, current streak, and best streak.
-- Exactly 150 locally bundled World English Bible verse cards with original Tagalog encouragement notes.
+- Exactly 150 locally bundled World English Bible verse cards with original Tagalog encouragement notes, rotated without repetition during a session.
+- A rotating collection of sweet notes from —Gab, with a full missed-first review at the end showing each question, attempts, and the final result.
 - Responsive desktop/mobile layout, keyboard choice shortcuts (`1`–`6`), visible focus states, and reduced-motion support.
 - Incorrect attempts show supportive feedback without marking or naming the correct choice in the game UI.
 - No account, cookies, analytics, backend, sound, or saved progress.
@@ -66,4 +67,3 @@ GitHub Actions will publish the new build after the checks pass. The intended pu
 ## Content and privacy note
 
 This is a public static site. The answer key must remain in the browser bundle for offline scoring, but the game UI never reveals it after an incorrect attempt. Do not add private names, personal photographs, credentials, API keys, or other secrets to the repository.
-
