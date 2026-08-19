@@ -19,6 +19,26 @@ type QuestionRecord = {
   selectedChoiceIds: string[];
 };
 
+export type QuizMachineSnapshot = {
+  version: 1;
+  questionIds: string[];
+  unseenIds: string[];
+  retries: RetryEntry[];
+  masteredIds: string[];
+  exhaustedIds: string[];
+  records: Array<QuestionRecord & { questionId: string }>;
+  firstAttemptedIds: string[];
+  firstAttemptCorrect: number;
+  attempts: number;
+  retryCount: number;
+  streak: number;
+  bestStreak: number;
+  current: {
+    questionId: string;
+    choiceIds: string[];
+  } | null;
+};
+
 export const MAX_ATTEMPTS_PER_QUESTION = 2;
 
 function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
@@ -62,6 +82,16 @@ export class QuizMachine {
     this.unseenIds = shuffle(this.questionIds, this.random);
   }
 
+  public static restore(
+    questions: readonly QuizQuestion[],
+    snapshot: QuizMachineSnapshot,
+    random: RandomSource = Math.random,
+  ): QuizMachine {
+    const machine = new QuizMachine(questions, random);
+    machine.applySnapshot(snapshot);
+    return machine;
+  }
+
   public start(): PresentedQuestion {
     if (this.current) {
       return this.current;
@@ -80,6 +110,34 @@ export class QuizMachine {
 
   public get pendingRetryCount(): number {
     return this.retries.length;
+  }
+
+  public snapshot(): QuizMachineSnapshot {
+    return {
+      version: 1,
+      questionIds: [...this.questionIds],
+      unseenIds: [...this.unseenIds],
+      retries: this.retries.map((entry) => ({ ...entry })),
+      masteredIds: [...this.masteredIds],
+      exhaustedIds: [...this.exhaustedIds],
+      records: this.questionIds.map((questionId) => ({
+        questionId,
+        ...this.getRecord(questionId),
+        selectedChoiceIds: [...this.getRecord(questionId).selectedChoiceIds],
+      })),
+      firstAttemptedIds: [...this.firstAttemptedIds],
+      firstAttemptCorrect: this.firstAttemptCorrect,
+      attempts: this.attempts,
+      retryCount: this.retryCount,
+      streak: this.streak,
+      bestStreak: this.bestStreak,
+      current: this.current
+        ? {
+            questionId: this.current.question.id,
+            choiceIds: this.current.choices.map((choice) => choice.id),
+          }
+        : null,
+    };
   }
 
   public get review(): QuestionReview[] {
@@ -225,6 +283,106 @@ export class QuizMachine {
       throw new Error(`Question ${questionId} was not found.`);
     }
     return record;
+  }
+
+  private applySnapshot(snapshot: QuizMachineSnapshot): void {
+    if (!snapshot || snapshot.version !== 1) {
+      throw new Error('The saved quiz session uses an unsupported format.');
+    }
+
+    const knownIds = new Set(this.questionIds);
+    const matchesQuestionBank = snapshot.questionIds.length === this.questionIds.length
+      && snapshot.questionIds.every((questionId) => knownIds.has(questionId));
+    if (!matchesQuestionBank) {
+      throw new Error('The saved quiz session does not match the current question bank.');
+    }
+
+    const requireKnownIds = (ids: readonly string[], label: string): void => {
+      if (!Array.isArray(ids) || ids.some((questionId) => !knownIds.has(questionId))) {
+        throw new Error(`The saved quiz session has invalid ${label}.`);
+      }
+    };
+    const requireCount = (value: number, label: string): void => {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(`The saved quiz session has an invalid ${label}.`);
+      }
+    };
+
+    requireKnownIds(snapshot.unseenIds, 'unseen questions');
+    requireKnownIds(snapshot.masteredIds, 'mastered questions');
+    requireKnownIds(snapshot.exhaustedIds, 'settled questions');
+    requireKnownIds(snapshot.firstAttemptedIds, 'first-attempt questions');
+    if (!Array.isArray(snapshot.retries)) {
+      throw new Error('The saved quiz session has invalid retries.');
+    }
+    snapshot.retries.forEach((entry) => {
+      requireKnownIds([entry.questionId], 'retry questions');
+      requireCount(entry.eligibleAtAttempt, 'retry position');
+    });
+    [
+      [snapshot.firstAttemptCorrect, 'first-attempt score'],
+      [snapshot.attempts, 'attempt count'],
+      [snapshot.retryCount, 'retry count'],
+      [snapshot.streak, 'streak'],
+      [snapshot.bestStreak, 'best streak'],
+    ].forEach(([value, label]) => requireCount(value as number, label as string));
+
+    if (!Array.isArray(snapshot.records) || snapshot.records.length !== this.questionIds.length) {
+      throw new Error('The saved quiz session has incomplete question records.');
+    }
+    const restoredRecords = new Map<string, QuestionRecord>();
+    snapshot.records.forEach((record) => {
+      requireKnownIds([record.questionId], 'question records');
+      requireCount(record.attempts, 'question attempt count');
+      requireCount(record.incorrectAttempts, 'question miss count');
+      const question = this.questionsById.get(record.questionId);
+      const choiceIds = new Set(question?.choices.map((choice) => choice.id) ?? []);
+      if (!Array.isArray(record.selectedChoiceIds) || record.selectedChoiceIds.some((choiceId) => !choiceIds.has(choiceId))) {
+        throw new Error('The saved quiz session has an invalid selected answer.');
+      }
+      restoredRecords.set(record.questionId, {
+        attempts: record.attempts,
+        incorrectAttempts: record.incorrectAttempts,
+        selectedChoiceIds: [...record.selectedChoiceIds],
+      });
+    });
+    if (restoredRecords.size !== this.questionIds.length) {
+      throw new Error('The saved quiz session has duplicate question records.');
+    }
+
+    let restoredCurrent: PresentedQuestion | null = null;
+    if (snapshot.current) {
+      requireKnownIds([snapshot.current.questionId], 'current question');
+      const question = this.questionsById.get(snapshot.current.questionId) as QuizQuestion;
+      const choicesById = new Map(question.choices.map((choice) => [choice.id, choice]));
+      const uniqueChoiceIds = new Set(snapshot.current.choiceIds);
+      if (
+        !Array.isArray(snapshot.current.choiceIds)
+        || snapshot.current.choiceIds.length !== question.choices.length
+        || uniqueChoiceIds.size !== question.choices.length
+        || snapshot.current.choiceIds.some((choiceId) => !choicesById.has(choiceId))
+      ) {
+        throw new Error('The saved quiz session has an invalid current answer order.');
+      }
+      restoredCurrent = {
+        question,
+        choices: snapshot.current.choiceIds.map((choiceId) => choicesById.get(choiceId) as QuizQuestion['choices'][number]),
+      };
+    }
+
+    this.unseenIds = [...snapshot.unseenIds];
+    this.retries = snapshot.retries.map((entry) => ({ ...entry }));
+    this.masteredIds = new Set(snapshot.masteredIds);
+    this.exhaustedIds = new Set(snapshot.exhaustedIds);
+    this.records.clear();
+    restoredRecords.forEach((record, questionId) => this.records.set(questionId, record));
+    this.firstAttemptedIds = new Set(snapshot.firstAttemptedIds);
+    this.firstAttemptCorrect = snapshot.firstAttemptCorrect;
+    this.attempts = snapshot.attempts;
+    this.retryCount = snapshot.retryCount;
+    this.streak = snapshot.streak;
+    this.bestStreak = snapshot.bestStreak;
+    this.current = restoredCurrent;
   }
 
   private pickNextId(): string | null {

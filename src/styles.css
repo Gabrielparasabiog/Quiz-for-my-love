@@ -127,6 +127,137 @@ button:disabled {
   backdrop-filter: blur(18px);
 }
 
+.access-shell {
+  padding: clamp(18px, 5vw, 64px);
+}
+
+.access-panel {
+  position: relative;
+  z-index: 1;
+  width: min(590px, 100%);
+  overflow: hidden;
+  padding: clamp(34px, 7vw, 70px);
+  border: 1px solid rgba(246, 199, 104, 0.4);
+  border-radius: 34px;
+  color: var(--cream);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(237, 92, 145, 0.22), transparent 34%),
+    rgba(37, 11, 57, 0.88);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+}
+
+.access-emblem {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 27px;
+  place-items: center;
+  border: 1px solid rgba(246, 199, 104, 0.48);
+  border-radius: 17px;
+  color: var(--deep);
+  font-size: 1.35rem;
+  background: var(--gold);
+  box-shadow: 0 12px 30px rgba(246, 199, 104, 0.18);
+}
+
+.access-panel h1 {
+  margin: 15px 0 17px;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.45rem, 7vw, 4.45rem);
+  letter-spacing: -0.055em;
+  line-height: 0.94;
+}
+
+.access-panel h1 em {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.access-lede,
+.access-note {
+  color: rgba(255, 248, 247, 0.68);
+  line-height: 1.6;
+}
+
+.access-lede {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.access-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.access-form > label {
+  color: rgba(255, 248, 247, 0.78);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.password-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.09);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.password-field:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(246, 199, 104, 0.12);
+}
+
+.password-field input {
+  min-width: 0;
+  padding: 15px 17px;
+  border: 0;
+  outline: 0;
+  color: var(--cream);
+  font: inherit;
+  background: transparent;
+}
+
+.password-field button {
+  margin: 6px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--cream);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.password-field button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.password-status {
+  min-height: 1.35em;
+  margin: 0;
+  color: #ffbac8;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.access-button {
+  width: 100%;
+  margin-top: 3px;
+}
+
+.access-note {
+  margin: 23px 0 0;
+  font-size: 0.74rem;
+}
+
 .welcome-copy {
   display: flex;
   flex-direction: column;
@@ -699,6 +830,7 @@ button:disabled {
   font-size: clamp(1.85rem, 4vw, 3.25rem);
   letter-spacing: -0.045em;
   line-height: 1.08;
+  white-space: pre-line;
 }
 
 .question-card h1:focus-visible {
@@ -790,6 +922,23 @@ button:disabled {
   filter: saturate(1.08) brightness(1.04);
 }
 
+.answer-tile.answer-correct,
+.answer-tile.answer-correct:disabled {
+  opacity: 1;
+  outline: 4px solid rgba(25, 99, 70, 0.3);
+  outline-offset: 2px;
+  background: #218a65;
+  filter: saturate(1.08) brightness(1.04);
+}
+
+.answer-tile.answer-wrong,
+.answer-tile.answer-wrong:disabled {
+  opacity: 0.82;
+  background: #b83f62;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
 .feedback-panel {
   position: relative;
   z-index: 2;
@@ -828,6 +977,21 @@ button:disabled {
   color: var(--muted-ink);
   font-size: 0.8rem;
   line-height: 1.45;
+}
+
+.feedback-panel > div {
+  min-width: 0;
+}
+
+.feedback-panel .feedback-correct-answer {
+  margin-top: 7px;
+  color: #175f45;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.feedback-correct-answer[hidden] {
+  display: none;
 }
 
 .feedback-correct { background: #e3f5ed; }

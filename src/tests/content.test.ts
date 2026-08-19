@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateQuestions, validateVerses } from '../core/content';
+import { formatPromptForDisplay } from '../core/promptFormat';
 import { ShuffleBag } from '../core/shuffleBag';
 import { questionBank } from '../data/questions';
 import { loveNoteMessages } from '../data/messages';
@@ -37,5 +38,19 @@ describe('ShuffleBag', () => {
       expect(draws[index]).not.toBe(draws[index - 1]);
     }
     expect(new Set(draws.slice(0, 3)).size).toBe(3);
+  });
+});
+
+describe('question presentation', () => {
+  it('places Roman-numeral statements on separate lines without changing their words', () => {
+    const prompt = 'Which statements are true? I. First statement II. Second statement III. Third statement';
+
+    expect(formatPromptForDisplay(prompt)).toBe(
+      'Which statements are true?\nI. First statement\nII. Second statement\nIII. Third statement',
+    );
+  });
+
+  it('leaves an ordinary question unchanged', () => {
+    expect(formatPromptForDisplay('What is the correct value?')).toBe('What is the correct value?');
   });
 });

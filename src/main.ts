@@ -1,19 +1,35 @@
 import './styles.css';
 import { validateQuestions, validateVerses } from './core/content';
-import { choiceLetter, formatAccuracy, MAX_ATTEMPTS_PER_QUESTION, QuizMachine } from './core/quizMachine';
+import { formatPromptForDisplay } from './core/promptFormat';
+import {
+  choiceLetter,
+  formatAccuracy,
+  MAX_ATTEMPTS_PER_QUESTION,
+  QuizMachine,
+  type QuizMachineSnapshot,
+} from './core/quizMachine';
 import { QuestionTimer } from './core/timer';
 import { VerseRotation } from './core/verseRotation';
 import { createMessageBags, type MessageKind } from './data/messages';
 import { questionBank } from './data/questions';
 import { verses } from './data/verses';
-import type { AnswerResult, Choice, PresentedQuestion, QuestionReview, QuizStats, VerseCard } from './types';
+import type { AnswerResult, PresentedQuestion, QuestionReview, QuizStats, VerseCard } from './types';
 
 const QUESTION_SECONDS = 60;
 const FEEDBACK_DELAY_MS = 1250;
+const ANSWER_REVEAL_DELAY_MS = 3500;
 const LOVE_NOTE_ROTATION_MS = 20000;
 const VERSE_ROTATION_MS = 60000;
+const QUIZ_PASSWORD_SHA256 = '4593718a964661304771909b2ea47d63a499d53a2944e0b8320ffeadd415649e';
+const SAVED_SESSION_KEY = 'quiz-for-my-love:session:v1';
 
-type AppPhase = 'welcome' | 'playing' | 'feedback' | 'complete' | 'unavailable';
+type AppPhase = 'locked' | 'welcome' | 'playing' | 'feedback' | 'complete' | 'unavailable';
+
+type PersistedQuizSession = {
+  version: 1;
+  machine: QuizMachineSnapshot;
+  milestoneShown: number[];
+};
 
 class QuizApp {
   private phase: AppPhase = 'welcome';
@@ -40,8 +56,84 @@ class QuizApp {
       return;
     }
 
-    this.renderWelcome();
+    this.renderAccessGate();
     window.addEventListener('keydown', (event) => this.handleKeyboard(event));
+  }
+
+  private renderAccessGate(): void {
+    this.phase = 'locked';
+    this.root.innerHTML = `
+      <main class="app-shell welcome-shell access-shell">
+        <div class="ambient-shape ambient-shape-one" aria-hidden="true"></div>
+        <div class="ambient-shape ambient-shape-two" aria-hidden="true"></div>
+        <section class="access-panel" aria-labelledby="access-title">
+          <div class="access-emblem" aria-hidden="true">✦</div>
+          <p class="eyebrow">A PRIVATE LITTLE RUMBLE</p>
+          <h1 id="access-title">For My Love,<br /><em>with love from Gab.</em></h1>
+          <p class="access-lede">Enter our password to continue your board-exam practice.</p>
+          <form class="access-form" id="access-form" novalidate>
+            <label for="quiz-password">Quiz password</label>
+            <div class="password-field">
+              <input id="quiz-password" name="password" type="password" autocomplete="current-password" required aria-describedby="password-status" />
+              <button type="button" id="toggle-password" aria-label="Show password" aria-pressed="false">Show</button>
+            </div>
+            <p class="password-status" id="password-status" role="alert" aria-live="polite"></p>
+            <button class="primary-button access-button" type="submit" id="unlock-button">
+              <span>Enter the quiz</span><span class="button-arrow" aria-hidden="true">↗</span>
+            </button>
+          </form>
+          <p class="access-note">Your quiz progress is saved on this browser, so you can return to the same question later.</p>
+        </section>
+      </main>
+    `;
+
+    const input = this.root.querySelector<HTMLInputElement>('#quiz-password');
+    const toggle = this.root.querySelector<HTMLButtonElement>('#toggle-password');
+    toggle?.addEventListener('click', () => {
+      if (!input) {
+        return;
+      }
+      const showPassword = input.type === 'password';
+      input.type = showPassword ? 'text' : 'password';
+      toggle.textContent = showPassword ? 'Hide' : 'Show';
+      toggle.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+      toggle.setAttribute('aria-pressed', `${showPassword}`);
+      input.focus();
+    });
+    this.root.querySelector<HTMLFormElement>('#access-form')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void this.handleUnlock();
+    });
+    input?.focus();
+  }
+
+  private async handleUnlock(): Promise<void> {
+    const input = this.root.querySelector<HTMLInputElement>('#quiz-password');
+    const button = this.root.querySelector<HTMLButtonElement>('#unlock-button');
+    const status = this.root.querySelector<HTMLElement>('#password-status');
+    if (!input || !button || !status) {
+      return;
+    }
+
+    button.disabled = true;
+    status.textContent = '';
+    try {
+      const passwordMatches = await sha256Hex(input.value) === QUIZ_PASSWORD_SHA256;
+      if (!passwordMatches) {
+        status.textContent = 'That password is not quite right. Please try again, My Love.';
+        input.select();
+        button.disabled = false;
+        return;
+      }
+
+      input.value = '';
+      if (!this.restoreSavedSession()) {
+        this.renderWelcome();
+      }
+    } catch {
+      status.textContent = 'The password check could not run in this browser. Please reload and try again.';
+      button.disabled = false;
+    }
   }
 
   private renderWelcome(): void {
@@ -81,7 +173,7 @@ class QuizApp {
             <div class="floating-card floating-card-bottom"><span>FAITH · FOCUS · HEART</span><strong>Keep going, My Love.</strong></div>
           </div>
         </section>
-        <footer class="welcome-footer"><span>No login. No pressure. Just practice.</span><span>Every question is another chance to shine.</span></footer>
+        <footer class="welcome-footer"><span>Private practice. Progress saved on this browser.</span><span>Every question is another chance to shine.</span></footer>
       </main>
     `;
 
@@ -110,6 +202,7 @@ class QuizApp {
 
   private startSession(): void {
     this.clearTimers();
+    this.clearSavedSession();
     this.engine = new QuizMachine(questionBank);
     this.timer = new QuestionTimer(QUESTION_SECONDS);
     this.messageBags = createMessageBags();
@@ -123,6 +216,81 @@ class QuizApp {
     this.startVerseRotation();
     this.renderCurrentQuestion();
     this.startTimer();
+  }
+
+  private restoreSavedSession(): boolean {
+    let rawSession: string | null;
+    try {
+      rawSession = window.localStorage.getItem(SAVED_SESSION_KEY);
+    } catch {
+      return false;
+    }
+    if (!rawSession) {
+      return false;
+    }
+
+    try {
+      const saved = JSON.parse(rawSession) as PersistedQuizSession;
+      if (saved.version !== 1 || !saved.machine || !Array.isArray(saved.milestoneShown)) {
+        throw new Error('Unsupported saved session.');
+      }
+
+      this.clearTimers();
+      this.engine = QuizMachine.restore(questionBank, saved.machine);
+      this.timer = new QuestionTimer(QUESTION_SECONDS);
+      this.messageBags = createMessageBags();
+      this.verseRotation.reset();
+      this.milestoneShown = new Set(
+        saved.milestoneShown.filter((milestone) => [25, 50, 75].includes(milestone)),
+      );
+      this.answerLocked = false;
+
+      if (this.engine.stats.remaining === 0) {
+        this.renderCompletion(this.engine.stats);
+        return true;
+      }
+
+      if (!this.engine.currentQuestion && !this.engine.next()) {
+        throw new Error('The saved session has no next question.');
+      }
+
+      this.phase = 'playing';
+      this.renderQuizShell();
+      this.startLoveNoteRotation();
+      this.startVerseRotation();
+      this.renderCurrentQuestion();
+      this.startTimer();
+      return true;
+    } catch {
+      this.clearSavedSession();
+      this.engine = null;
+      this.timer = null;
+      return false;
+    }
+  }
+
+  private persistSession(): void {
+    if (!this.engine) {
+      return;
+    }
+    const saved: PersistedQuizSession = {
+      version: 1,
+      machine: this.engine.snapshot(),
+      milestoneShown: [...this.milestoneShown],
+    };
+    try {
+      window.localStorage.setItem(SAVED_SESSION_KEY, JSON.stringify(saved));
+    } catch {
+      // The quiz remains fully usable when browser storage is unavailable.
+    }
+  }
+
+  private clearSavedSession(): void {
+    try {
+      window.localStorage.removeItem(SAVED_SESSION_KEY);
+    } catch {
+      // Nothing else is required when browser storage is unavailable.
+    }
   }
 
   private renderQuizShell(): void {
@@ -157,7 +325,7 @@ class QuizApp {
               <div class="answer-grid" id="answer-grid" role="group" aria-label="Answer choices"></div>
               <div class="feedback-panel" id="feedback-panel" aria-live="polite" aria-atomic="true" hidden>
                 <span class="feedback-symbol" id="feedback-symbol">✓</span>
-                <div><strong id="feedback-title">Correct</strong><p id="feedback-message"></p></div>
+              <div><strong id="feedback-title">Correct</strong><p id="feedback-message"></p><p class="feedback-correct-answer" id="feedback-correct-answer" hidden></p></div>
               </div>
             </article>
             <div class="stats-strip" aria-label="Current quiz statistics">
@@ -196,12 +364,13 @@ class QuizApp {
     this.timer?.reset();
     this.setText('#question-number', `QUESTION ${String(this.engine.stats.attempts + 1).padStart(2, '0')}`);
     this.setText('#question-category', current.question.category);
-    this.setText('#question-heading', current.question.prompt);
+    this.setText('#question-heading', formatPromptForDisplay(current.question.prompt));
     this.setText('#feedback-message', '');
     this.hideFeedback();
     this.renderChoices(current);
     this.updateStats(this.engine.stats);
     this.updateTimer();
+    this.persistSession();
     document.querySelector<HTMLElement>('#question-heading')?.focus({ preventScroll: true });
   }
 
@@ -251,7 +420,8 @@ class QuizApp {
     this.answerLocked = true;
     this.stopTimer();
     const result = this.engine.answer(choiceId);
-    this.highlightChoice(result.presented.choices, result.selectedChoiceId);
+    this.highlightChoice(result.presented, result.selectedChoiceId, true);
+    this.persistSession();
     this.showFeedback(result);
   }
 
@@ -263,18 +433,27 @@ class QuizApp {
     this.answerLocked = true;
     this.stopTimer();
     const result = this.engine.timeout();
+    this.highlightChoice(result.presented, undefined, true);
+    this.persistSession();
     this.showFeedback(result);
   }
 
-  private highlightChoice(choices: readonly Choice[], selectedChoiceId?: string): void {
+  private highlightChoice(presented: PresentedQuestion, selectedChoiceId?: string, revealCorrect = false): void {
     const buttons = [...this.root.querySelectorAll<HTMLButtonElement>('.answer-tile')];
     buttons.forEach((button) => {
       button.disabled = true;
       if (button.dataset.choiceId === selectedChoiceId) {
         button.classList.add('answer-selected');
+        if (selectedChoiceId !== presented.question.correctChoiceId) {
+          button.classList.add('answer-wrong');
+        }
+      }
+      if (revealCorrect && button.dataset.choiceId === presented.question.correctChoiceId) {
+        button.classList.add('answer-correct');
+        button.setAttribute('aria-label', `${button.getAttribute('aria-label') ?? 'Answer'} — correct answer`);
       }
     });
-    if (selectedChoiceId && choices.length > 0) {
+    if (selectedChoiceId && presented.choices.length > 0) {
       const selected = buttons.find((button) => button.dataset.choiceId === selectedChoiceId);
       selected?.setAttribute('aria-label', `${selected.getAttribute('aria-label') ?? 'Selected answer'} selected`);
     }
@@ -304,6 +483,20 @@ class QuizApp {
     this.setText('#feedback-title', title);
     this.setText('#feedback-message', this.messageBags[kind].next());
     this.setText('#feedback-symbol', result.outcome === 'correct' ? '✓' : result.outcome === 'timeout' ? '⌛' : '↻');
+    const correctAnswer = this.root.querySelector<HTMLElement>('#feedback-correct-answer');
+    if (correctAnswer) {
+      const correctChoiceIndex = result.presented.choices.findIndex(
+        (choice) => choice.id === result.presented.question.correctChoiceId,
+      );
+      const correctChoice = result.presented.choices[correctChoiceIndex];
+      if (result.outcome !== 'correct' && correctChoice) {
+        correctAnswer.textContent = `Tamang sagot: ${choiceLetter(correctChoiceIndex)}. ${correctChoice.label}`;
+        correctAnswer.hidden = false;
+      } else {
+        correctAnswer.textContent = '';
+        correctAnswer.hidden = true;
+      }
+    }
     this.updateStats(result.stats);
 
     const mastered = result.stats.mastered;
@@ -330,7 +523,7 @@ class QuizApp {
       this.engine.next();
       this.renderCurrentQuestion();
       this.startTimer();
-    }, FEEDBACK_DELAY_MS);
+    }, result.outcome === 'correct' ? FEEDBACK_DELAY_MS : ANSWER_REVEAL_DELAY_MS);
   }
 
   private renderCompletion(stats: QuizStats): void {
@@ -516,6 +709,7 @@ class QuizApp {
     this.clearTimers();
     this.stopVerseRotation();
     this.stopLoveNoteRotation();
+    this.clearSavedSession();
     this.phase = 'welcome';
     this.answerLocked = false;
     this.engine = null;
@@ -539,4 +733,12 @@ function escapeHtml(value: string): string {
     '"': '&quot;',
     "'": '&#039;',
   })[character] ?? character);
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }

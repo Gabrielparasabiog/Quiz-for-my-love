@@ -13,8 +13,10 @@ A small, static board-exam practice rumble made for My Love. It is intentionally
 - Exactly 150 locally bundled World English Bible verse cards with original Tagalog encouragement notes, rotated without repetition during a session.
 - A rotating collection of sweet notes from —Gab, with a full missed-first review at the end showing each question, attempts, and the final result.
 - Responsive desktop/mobile layout, keyboard choice shortcuts (`1`–`6`), visible focus states, and reduced-motion support.
-- Incorrect attempts show supportive feedback without marking or naming the correct choice in the game UI.
-- No account, cookies, analytics, backend, sound, or saved progress.
+- Roman-numeral statement groups (`I.`, `II.`, `III.`, and so on) are displayed on separate lines without changing the supplied question wording.
+- Incorrect and timed-out attempts identify and highlight the correct answer before the next question appears.
+- A password screen appears before the quiz, and active progress is saved in this browser so a returning player resumes the exact current question and answer order.
+- No account, analytics, backend, or sound.
 
 ## Run it locally
 
@@ -66,4 +68,4 @@ GitHub Actions will publish the new build after the checks pass. The intended pu
 
 ## Content and privacy note
 
-This is a public static site. The answer key must remain in the browser bundle for offline scoring, but the game UI never reveals it after an incorrect attempt. Do not add private names, personal photographs, credentials, API keys, or other secrets to the repository.
+This is a public static site. The answer key must remain in the browser bundle for offline scoring. The password screen is a friendly access gate, not server-enforced authentication; anyone with source access can bypass a client-only gate. Do not add private names, personal photographs, credentials, API keys, or other secrets to the repository.

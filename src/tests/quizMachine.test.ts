@@ -115,6 +115,33 @@ describe('QuizMachine', () => {
     expect(() => machine.answer('wrong')).toThrow('There is no active question');
   });
 
+  it('restores the exact current question, answer order, and progress from a saved session', () => {
+    const questions = makeQuestions(4);
+    const machine = new QuizMachine(questions, () => 0.42);
+    const first = machine.start();
+    machine.answer(first.question.correctChoiceId);
+    const current = machine.next();
+    const snapshot = machine.snapshot();
+
+    const restored = QuizMachine.restore(questions, snapshot, () => 0.9);
+
+    expect(restored.currentQuestion?.question.id).toBe(current?.question.id);
+    expect(restored.currentQuestion?.choices.map((choice) => choice.id)).toEqual(
+      current?.choices.map((choice) => choice.id),
+    );
+    expect(restored.stats).toEqual(machine.stats);
+    expect(restored.snapshot().unseenIds).toEqual(snapshot.unseenIds);
+  });
+
+  it('rejects saved progress when it belongs to a different question bank', () => {
+    const machine = new QuizMachine(makeQuestions(3), () => 0.31);
+    machine.start();
+
+    expect(() => QuizMachine.restore(makeQuestions(2), machine.snapshot())).toThrow(
+      'does not match the current question bank',
+    );
+  });
+
   it('counts timeouts as retries and never reveals a correct choice in the result', () => {
     const machine = new QuizMachine(makeQuestions(2), () => 0.31);
     const question = machine.start();
