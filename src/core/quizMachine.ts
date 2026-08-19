@@ -1,6 +1,7 @@
 import type {
   AnswerResult,
   PresentedQuestion,
+  QuestionReview,
   QuizQuestion,
   QuizStats,
 } from '../types';
@@ -11,6 +12,14 @@ type RetryEntry = {
   questionId: string;
   eligibleAtAttempt: number;
 };
+
+type QuestionRecord = {
+  attempts: number;
+  incorrectAttempts: number;
+  selectedChoiceIds: string[];
+};
+
+export const MAX_ATTEMPTS_PER_QUESTION = 2;
 
 function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
   const result = [...items];
@@ -27,6 +36,8 @@ export class QuizMachine {
   private unseenIds: string[];
   private retries: RetryEntry[] = [];
   private masteredIds = new Set<string>();
+  private exhaustedIds = new Set<string>();
+  private readonly records = new Map<string, QuestionRecord>();
   private firstAttemptedIds = new Set<string>();
   private firstAttemptCorrect = 0;
   private attempts = 0;
@@ -45,6 +56,9 @@ export class QuizMachine {
     this.random = random;
     questions.forEach((question) => this.questionsById.set(question.id, question));
     this.questionIds = questions.map((question) => question.id);
+    this.questionIds.forEach((questionId) => {
+      this.records.set(questionId, { attempts: 0, incorrectAttempts: 0, selectedChoiceIds: [] });
+    });
     this.unseenIds = shuffle(this.questionIds, this.random);
   }
 
@@ -66,6 +80,31 @@ export class QuizMachine {
 
   public get pendingRetryCount(): number {
     return this.retries.length;
+  }
+
+  public get review(): QuestionReview[] {
+    return this.questionIds
+      .map((questionId) => {
+        const record = this.getRecord(questionId);
+        const mastered = this.masteredIds.has(questionId);
+        return {
+          question: this.questionsById.get(questionId) as QuizQuestion,
+          attempts: record.attempts,
+          incorrectAttempts: record.incorrectAttempts,
+          selectedChoiceIds: [...record.selectedChoiceIds],
+          mastered,
+          status: mastered
+            ? record.incorrectAttempts > 0
+              ? 'corrected'
+              : 'mastered'
+            : 'not-mastered',
+        } satisfies QuestionReview;
+      })
+      .sort((left, right) => {
+        const leftMissed = left.incorrectAttempts > 0 ? 0 : 1;
+        const rightMissed = right.incorrectAttempts > 0 ? 0 : 1;
+        return leftMissed - rightMissed;
+      });
   }
 
   public answer(choiceId: string): AnswerResult {
@@ -105,11 +144,19 @@ export class QuizMachine {
   public get stats(): QuizStats {
     const totalQuestions = this.questionIds.length;
     const mastered = this.masteredIds.size;
+    const reviewed = [...this.records.values()].filter((record) => record.incorrectAttempts > 0).length;
+    const wrongAnswers = [...this.records.values()].reduce((total, record) => total + record.incorrectAttempts, 0);
+    const mistakes = this.exhaustedIds.size;
+    const settled = mastered + mistakes;
     const firstAttempted = this.firstAttemptedIds.size;
     return {
       totalQuestions,
       mastered,
-      remaining: totalQuestions - mastered,
+      remaining: totalQuestions - settled,
+      reviewed,
+      mistakes,
+      wrongAnswers,
+      score: totalQuestions === 0 ? 0 : (mastered / totalQuestions) * 100,
       attempts: this.attempts,
       retries: this.retryCount,
       firstAttempted,
@@ -127,11 +174,18 @@ export class QuizMachine {
   ): AnswerResult {
     this.attempts += 1;
     const questionId = presented.question.id;
+    const record = this.getRecord(questionId);
+    const attemptNumber = record.attempts + 1;
+    record.attempts = attemptNumber;
+    if (selectedChoiceId) {
+      record.selectedChoiceIds.push(selectedChoiceId);
+    }
     const firstAttempt = !this.firstAttemptedIds.has(questionId);
     this.firstAttemptedIds.add(questionId);
 
     if (outcome === 'correct') {
       this.masteredIds.add(questionId);
+      this.exhaustedIds.delete(questionId);
       this.retries = this.retries.filter((entry) => entry.questionId !== questionId);
       this.streak += 1;
       this.bestStreak = Math.max(this.bestStreak, this.streak);
@@ -139,10 +193,15 @@ export class QuizMachine {
         this.firstAttemptCorrect += 1;
       }
     } else {
+      record.incorrectAttempts += 1;
       this.retryCount += 1;
       this.streak = 0;
       this.retries = this.retries.filter((entry) => entry.questionId !== questionId);
-      this.retries.push({ questionId, eligibleAtAttempt: this.attempts + 10 });
+      if (attemptNumber >= MAX_ATTEMPTS_PER_QUESTION) {
+        this.exhaustedIds.add(questionId);
+      } else {
+        this.retries.push({ questionId, eligibleAtAttempt: this.attempts + 10 });
+      }
     }
 
     this.current = null;
@@ -152,9 +211,20 @@ export class QuizMachine {
       questionId,
       presented,
       selectedChoiceId,
+      attemptNumber,
+      attemptsRemaining: Math.max(0, MAX_ATTEMPTS_PER_QUESTION - attemptNumber),
+      finalForQuestion: outcome === 'correct' || attemptNumber >= MAX_ATTEMPTS_PER_QUESTION,
       stats,
       completed: stats.remaining === 0,
     };
+  }
+
+  private getRecord(questionId: string): QuestionRecord {
+    const record = this.records.get(questionId);
+    if (!record) {
+      throw new Error(`Question ${questionId} was not found.`);
+    }
+    return record;
   }
 
   private pickNextId(): string | null {
