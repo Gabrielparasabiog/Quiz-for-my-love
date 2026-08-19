@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateQuestions, validateVerses } from '../core/content';
 import { ShuffleBag } from '../core/shuffleBag';
 import { questionBank } from '../data/questions';
+import { loveNoteMessages } from '../data/messages';
 import { verses } from '../data/verses';
 
 describe('bundled content', () => {
@@ -18,6 +19,12 @@ describe('bundled content', () => {
     expect(new Set(verses.map((verse) => verse.theme))).toEqual(
       new Set(['courage', 'wisdom', 'perseverance', 'peace', 'discipline', 'hope', 'faith']),
     );
+  });
+
+  it('has a generous pool of unique Gab love notes for rotation', () => {
+    expect(loveNoteMessages.length).toBeGreaterThanOrEqual(30);
+    expect(new Set(loveNoteMessages).size).toBe(loveNoteMessages.length);
+    expect(loveNoteMessages.every((message) => message.endsWith('—Gab'))).toBe(true);
   });
 });
 
