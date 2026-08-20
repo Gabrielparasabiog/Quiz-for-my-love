@@ -4,7 +4,7 @@ A small, static board-exam practice rumble made for My Love. It is intentionally
 
 ## What is included
 
-- 231 multiple-choice questions imported from the supplied test-bank PDF, with the PDF wording and choices preserved.
+- 231 multiple-choice questions imported from the supplied test-bank PDF, with the PDF wording and choices preserved and reviewed answer-key corrections applied.
 - A 60-second timer for every attempt.
 - Every question allows at most two attempts. A first wrong or timed-out attempt returns after ten other attempts when there are enough available questions; with fewer remaining questions, it returns after the current available queue is exhausted. A second miss settles that question as not mastered so the session cannot loop forever.
 - The rumble ends when every question is either mastered or settled after its two attempts.
@@ -44,7 +44,7 @@ Edit [`src/data/questions.ts`](./src/data/questions.ts). Each question must have
 - two to six choices with unique choice IDs;
 - a `correctChoiceId` that matches exactly one choice ID.
 
-The current bank was generated from `test bank .pdf`; only PDF layout line wrapping was joined. The app validates the bank at startup and shows a friendly content-check screen rather than starting with invalid content. Run the checks above before committing a replacement bank.
+The current bank was generated from `test bank .pdf`; only PDF layout line wrapping was joined, then reviewed instructor answer-key corrections were applied. The app validates the bank at startup and shows a friendly content-check screen rather than starting with invalid content. Run the checks above before committing a replacement bank.
 
 ## Replace or review verse cards
 

@@ -1,6 +1,6 @@
 import type { QuizQuestion } from '../types';
 
-// Imported verbatim from the supplied test-bank PDF. Only PDF line wrapping was joined.
+// Imported from the supplied test-bank PDF. Reviewed instructor corrections override the PDF answer key.
 export const questionBank: QuizQuestion[] = [
   {
     "id": "pdf-0001",
@@ -384,7 +384,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Moisture Content"
       }
     ],
-    "correctChoiceId": "a"
+    "correctChoiceId": "b"
   },
   {
     "id": "pdf-0017",
@@ -408,7 +408,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Moisture Content"
       }
     ],
-    "correctChoiceId": "b"
+    "correctChoiceId": "a"
   },
   {
     "id": "pdf-0018",
@@ -504,7 +504,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "0 < e"
       }
     ],
-    "correctChoiceId": "b"
+    "correctChoiceId": "d"
   },
   {
     "id": "pdf-0022",
@@ -552,7 +552,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "0 < w"
       }
     ],
-    "correctChoiceId": "a"
+    "correctChoiceId": "c"
   },
   {
     "id": "pdf-0024",
@@ -624,7 +624,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Independent of specific gravity of soil"
       }
     ],
-    "correctChoiceId": "c"
+    "correctChoiceId": "b"
   },
   {
     "id": "pdf-0027",
