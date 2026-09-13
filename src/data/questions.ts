@@ -1,7 +1,8 @@
 import type { QuizQuestion } from '../types';
+import { supplementalQuestions } from './supplementalQuestions';
 
 // Imported from the supplied test-bank PDF. Reviewed instructor corrections override the PDF answer key.
-export const questionBank: QuizQuestion[] = [
+const legacyQuestionBank: QuizQuestion[] = [
   {
     "id": "pdf-0001",
     "category": "HGE 1 — TERMS",
@@ -2520,7 +2521,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "III only"
       }
     ],
-    "correctChoiceId": "a"
+    "correctChoiceId": "c"
   },
   {
     "id": "pdf-0106",
@@ -5352,7 +5353,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Unloading time"
       }
     ],
-    "correctChoiceId": "b"
+    "correctChoiceId": "c"
   },
   {
     "id": "pdf-0224",
@@ -5424,7 +5425,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Boiling"
       }
     ],
-    "correctChoiceId": "b"
+    "correctChoiceId": "c"
   },
   {
     "id": "pdf-0227",
@@ -5448,7 +5449,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Edging"
       }
     ],
-    "correctChoiceId": "d"
+    "correctChoiceId": "a"
   },
   {
     "id": "pdf-0228",
@@ -5472,7 +5473,7 @@ export const questionBank: QuizQuestion[] = [
         "label": "Jointing"
       }
     ],
-    "correctChoiceId": "a"
+    "correctChoiceId": "d"
   },
   {
     "id": "pdf-0229",
@@ -5546,4 +5547,42 @@ export const questionBank: QuizQuestion[] = [
     ],
     "correctChoiceId": "d"
   }
+];
+
+// These entries were repeated across the imported exam sets. The oldest
+// complete entry remains canonical; the removed IDs stay documented here so
+// future imports cannot silently reintroduce the same question.
+const duplicateLegacyQuestionIds = new Set([
+  'pdf-0056',
+  'pdf-0113',
+  'pdf-0137',
+  'pdf-0138',
+  'pdf-0143',
+  'pdf-0158',
+  'pdf-0161',
+  'pdf-0162',
+  'pdf-0163',
+  'pdf-0167',
+  'pdf-0172',
+  'pdf-0173',
+  'pdf-0174',
+  'pdf-0176',
+  'pdf-0179',
+  'pdf-0182',
+  'pdf-0184',
+  'pdf-0204',
+  'pdf-0205',
+  'pdf-0207',
+  'pdf-0208',
+  'pdf-0209',
+  'pdf-0210',
+  'pdf-0213',
+  'pdf-0218',
+  'pdf-0221',
+  'pdf-0230',
+]);
+
+export const questionBank: QuizQuestion[] = [
+  ...legacyQuestionBank.filter((question) => !duplicateLegacyQuestionIds.has(question.id)),
+  ...supplementalQuestions,
 ];
