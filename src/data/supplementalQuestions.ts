@@ -234,6 +234,146 @@ const imageQuestions: QuizQuestion[] = [
   },
 ];
 
+// Additional marked soil-mechanics questions transcribed from the 15-item
+// image set supplied on 2026-09-15. Four source items are intentionally not
+// repeated here because their concepts already have canonical entries in the
+// bank: liquefaction, Terzaghi bearing-capacity factors, negative skin
+// friction, and neutral stress.
+const additionalImageQuestions: QuizQuestion[] = [
+  {
+    id: 'image-20260915-020',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The relative density of loose soil, in percent, is:',
+    choices: [
+      { id: 'a', label: '0 to 15' },
+      { id: 'b', label: '15 to 35' },
+      { id: 'c', label: '35 to 65' },
+      { id: 'd', label: '65 to 85' },
+    ],
+    correctChoiceId: 'b',
+  },
+  {
+    id: 'image-20260915-021',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The relative density of dense soil, in percent, is:',
+    choices: [
+      { id: 'a', label: '15 to 35' },
+      { id: 'b', label: '35 to 65' },
+      { id: 'c', label: '65 to 85' },
+      { id: 'd', label: '85 to 100' },
+    ],
+    correctChoiceId: 'c',
+  },
+  {
+    id: 'image-20260915-022',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The relative density of very dense soil, in percent, is:',
+    choices: [
+      { id: 'a', label: '15 to 35' },
+      { id: 'b', label: '35 to 65' },
+      { id: 'c', label: '65 to 85' },
+      { id: 'd', label: '85 to 100' },
+    ],
+    correctChoiceId: 'd',
+  },
+  {
+    id: 'image-20260915-023',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'A cohesionless soil is considered dense if the SPT N-value is between:',
+    choices: [
+      { id: 'a', label: '0 to 10' },
+      { id: 'b', label: '10 to 30' },
+      { id: 'c', label: '30 to 50' },
+      { id: 'd', label: '50 and above' },
+    ],
+    correctChoiceId: 'c',
+  },
+  {
+    id: 'image-20260915-024',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'A cohesionless soil is considered loose if the SPT N-value is between:',
+    choices: [
+      { id: 'a', label: '0 to 4' },
+      { id: 'b', label: '10 to 30' },
+      { id: 'c', label: '30 to 50' },
+      { id: 'd', label: '4 to 10' },
+    ],
+    correctChoiceId: 'd',
+  },
+  {
+    id: 'image-20260915-025',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'A cohesionless soil is considered very loose if the SPT N-value is between:',
+    choices: [
+      { id: 'a', label: '0 to 4' },
+      { id: 'b', label: '10 to 30' },
+      { id: 'c', label: '30 to 50' },
+      { id: 'd', label: '4 to 10' },
+    ],
+    correctChoiceId: 'a',
+  },
+  {
+    id: 'image-20260915-026',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The volume change in a saturated soil caused by the expulsion of pore water and rearrangement of soil particles due to an applied load is known as:',
+    choices: [
+      { id: 'a', label: 'Initial consolidation' },
+      { id: 'b', label: 'Primary consolidation' },
+      { id: 'c', label: 'Secondary consolidation' },
+      { id: 'd', label: 'None of the above' },
+    ],
+    correctChoiceId: 'b',
+  },
+  {
+    id: 'image-20260915-027',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The gradual volume change in a saturated soil that occurs after dissipation of excess pore pressure, primarily due to deformation of the soil skeleton, is known as:',
+    choices: [
+      { id: 'a', label: 'Initial consolidation' },
+      { id: 'b', label: 'Primary consolidation' },
+      { id: 'c', label: 'Secondary consolidation' },
+      { id: 'd', label: 'None of the above' },
+    ],
+    correctChoiceId: 'c',
+  },
+  {
+    id: 'image-20260915-028',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The overconsolidation ratio (OCR) of an overconsolidated soil is:',
+    choices: [
+      { id: 'a', label: 'Less than 1' },
+      { id: 'b', label: 'Equal to 1' },
+      { id: 'c', label: 'Greater than 1' },
+      { id: 'd', label: 'None of the above' },
+    ],
+    correctChoiceId: 'c',
+  },
+  {
+    id: 'image-20260915-029',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The overconsolidation ratio (OCR) of a normally consolidated soil is:',
+    choices: [
+      { id: 'a', label: 'Less than 1' },
+      { id: 'b', label: 'Equal to 1' },
+      { id: 'c', label: 'Greater than 1' },
+      { id: 'd', label: 'None of the above' },
+    ],
+    correctChoiceId: 'b',
+  },
+  {
+    id: 'image-20260915-030',
+    category: 'SOIL MECHANICS AND FOUNDATION ENGINEERING - SUPPLEMENTAL',
+    prompt: 'The coefficient of earth pressure at rest is:',
+    choices: [
+      { id: 'a', label: 'Less than active earth pressure but greater than passive earth pressure' },
+      { id: 'b', label: 'Greater than active earth pressure but less than passive earth pressure' },
+      { id: 'c', label: 'Greater than both active and passive earth pressure' },
+      { id: 'd', label: 'Less than both active and passive earth pressure' },
+    ],
+    correctChoiceId: 'b',
+  },
+];
+
 type ConstructionConcept = {
   id: string;
   category: string;
@@ -443,5 +583,4 @@ const conceptQuestions: QuizQuestion[] = concepts.map((concept, index) => {
   };
 });
 
-export const supplementalQuestions: QuizQuestion[] = [...imageQuestions, ...conceptQuestions];
-
+export const supplementalQuestions: QuizQuestion[] = [...imageQuestions, ...additionalImageQuestions, ...conceptQuestions];

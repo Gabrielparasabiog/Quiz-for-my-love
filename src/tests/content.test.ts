@@ -9,13 +9,13 @@ import { verses } from '../data/verses';
 
 describe('bundled content', () => {
   it('contains the complete validated and de-duplicated question bank', () => {
-    expect(questionBank).toHaveLength(389);
+    expect(questionBank).toHaveLength(400);
     expect(validateQuestions(questionBank)).toEqual([]);
-    expect(new Set(questionBank.map((question) => question.id)).size).toBe(389);
+    expect(new Set(questionBank.map((question) => question.id)).size).toBe(400);
   });
 
   it('includes the image answer keys and the distinct April 2025 concepts', () => {
-    expect(supplementalQuestions.filter((question) => question.id.startsWith('image-'))).toHaveLength(19);
+    expect(supplementalQuestions.filter((question) => question.id.startsWith('image-'))).toHaveLength(30);
     expect(supplementalQuestions.filter((question) => question.id.startsWith('apr25-'))).toHaveLength(166);
 
     const answerById = new Map(supplementalQuestions.map((question) => [question.id, question.correctChoiceId]));
@@ -23,6 +23,10 @@ describe('bundled content', () => {
     expect(answerById.get('image-20260912-006')).toBe('c');
     expect(answerById.get('image-20260912-010')).toBe('d');
     expect(answerById.get('image-20260912-019')).toBe('c');
+    expect(answerById.get('image-20260915-020')).toBe('b');
+    expect(answerById.get('image-20260915-023')).toBe('c');
+    expect(answerById.get('image-20260915-028')).toBe('c');
+    expect(answerById.get('image-20260915-030')).toBe('b');
   });
 
   it('preserves the reviewed HGE 10 answer corrections', () => {

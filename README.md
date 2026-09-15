@@ -4,7 +4,7 @@ A small, static board-exam practice rumble made for My Love. It is intentionally
 
 ## What is included
 
-- 389 de-duplicated multiple-choice questions compiled from the original test-bank, the supplied marked answer images, and the April 2025 construction-concepts compilation. New concept definitions use four topic-matched choices and reviewed answer-key corrections are applied.
+- 400 de-duplicated multiple-choice questions compiled from the original test-bank, the supplied marked answer images, and the April 2025 construction-concepts compilation. New concept definitions use four topic-matched choices and reviewed answer-key corrections are applied.
 - A 60-second timer for every attempt.
 - Every question allows at most two attempts. A first wrong or timed-out attempt returns after ten other attempts when there are enough available questions; with fewer remaining questions, it returns after the current available queue is exhausted. A second miss settles that question as not mastered so the session cannot loop forever.
 - The rumble ends when every question is either mastered or settled after its two attempts.
