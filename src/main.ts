@@ -21,12 +21,12 @@ const ANSWER_REVEAL_DELAY_MS = 3500;
 const LOVE_NOTE_ROTATION_MS = 20000;
 const VERSE_ROTATION_MS = 60000;
 const QUIZ_PASSWORD_SHA256 = '4593718a964661304771909b2ea47d63a499d53a2944e0b8320ffeadd415649e';
-const SAVED_SESSION_KEY = 'quiz-for-my-love:session:v1';
+const SAVED_SESSION_KEY = 'quiz-for-my-love:session:v2';
 
 type AppPhase = 'locked' | 'welcome' | 'playing' | 'feedback' | 'complete' | 'unavailable';
 
 type PersistedQuizSession = {
-  version: 1;
+  version: 2;
   machine: QuizMachineSnapshot;
   milestoneShown: number[];
 };
@@ -231,7 +231,7 @@ class QuizApp {
 
     try {
       const saved = JSON.parse(rawSession) as PersistedQuizSession;
-      if (saved.version !== 1 || !saved.machine || !Array.isArray(saved.milestoneShown)) {
+      if (saved.version !== 2 || !saved.machine || !Array.isArray(saved.milestoneShown)) {
         throw new Error('Unsupported saved session.');
       }
 
@@ -274,7 +274,7 @@ class QuizApp {
       return;
     }
     const saved: PersistedQuizSession = {
-      version: 1,
+      version: 2,
       machine: this.engine.snapshot(),
       milestoneShown: [...this.milestoneShown],
     };
